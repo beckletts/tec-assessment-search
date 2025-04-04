@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pearson BTEC External Assessment Overview</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --pearson-blue: #007FA3;
+            --pearson-dark-blue: #003057;
+            --pearson-light-blue: #E4F1F6;
+            --pearson-pink: #DA291C;
+            --pearl-grey: #F5F5F5;
+        }
+        
+        * {
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        header {
+            background-color: var(--pearson-dark-blue);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+        }
+        
+        .logo img {
+            height: 40px;
+            margin-right: 10px;
+        }
+        
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .filters {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .filter-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .filter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .filter-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: var(--pearson-dark-blue);
+        }
+        
+        .filter-group select, .filter-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .filter-controls {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        
+        .primary-btn {
+            background-color: var(--pearson-blue);
+            color: white;
+        }
+        
+        .primary-btn:hover {
+            background-color: var(--pearson-dark-blue);
+        }
+        
+        .secondary-btn {
+            background-color: #e0e0e0;
+            color: #333;
+        }
+        
+        .secondary-btn:hover {
+            background-color: #d0d0d0;
+        }
+        
+        .results {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .results-header {
+            background-color: var(--pearson-light-blue);
+            padding: 15px 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .results-header h2 {
+            color: var(--pearson-dark-blue);
+            font-size: 18px;
+            margin: 0;
+        }
+        
+        .results-count {
+            color: var(--pearson-blue);
+            font-weight: normal;
+            margin-left: 10px;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: var(--pearson-light-blue);
+            color: var(--pearson-dark-blue);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            font-weight: bold;
+        }
+        
+        tbody tr:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .status-pill {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 50px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status-exam {
+            background-color: #ffecb3;
+            color: #856404;
+        }
+        
+        .status-task {
+            background-color: #b3e0ff;
+            color: #0062cc;
+        }
+        
+        .no-results {
+            padding: 40px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .no-results i {
+            font-size: 48px;
+            color: #ddd;
+            margin-bottom: 15px;
+        }
+        
+        .action-cell {
+            white-space: nowrap;
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--pearson-blue);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .datepicker {
+            position: relative;
+        }
+        
+        .datepicker input {
+            padding-right: 30px;
+        }
+        
+        .datepicker i {
+            position: absolute;
+            right: 10px;
+            top: 35px;
+            color: #666;
+        }
+        
+        .info-icon {
+            color: var(--pearson-blue);
+            margin-left: 5px;
+            cursor: help;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+        
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 700px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: #333;
+        }
+        
+        .modal-header {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h3 {
+            color: var(--pearson-dark-blue);
+            margin: 0;
+        }
+        
+        .detail-row {
+            display: flex;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 12px;
+        }
+        
+        .detail-label {
+            flex: 0 0 30%;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .detail-value {
+            flex: 0 0 70%;
+        }
+
+        .tab-container {
+            margin-bottom: 20px;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            background-color: #f8f8f8;
+            margin-right: 5px;
+            border-radius: 4px 4px 0 0;
+        }
+        
+        .tab.active {
+            background-color: white;
+            border-color: #ddd;
+            color: var(--pearson-blue);
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        footer {
+            background-color: var(--pearson-dark-blue);
+            color: #f5f5f5;
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+        }
+        
+        @media (max-width: 768px) {
+            .filter-group {
+                flex: 1 0 100%;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .logo {
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="#" class="logo">
+                <img src="logo.png" alt="Pearson Logo" width="40" height="40">
+                Pearson BTEC External Assessment
+            </a>
+        </div>
+    </header>
+
+    <main>
+        <div class="tab-container">
+            <div class="tabs">
+                <div class="tab active" data-tab="search">Search</div>
+                <div class="tab" data-tab="upcoming">Upcoming Assessments</div>
+            </div>
+        </div>
+
+        <div class="tab-content active" id="search-tab">
+            <div class="filters">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="qualification">Qualification</label>
+                        <select id="qualification">
+                            <option value="">All Qualifications</option>
+                            <!-- Options will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="sector">Sector</label>
+                        <select id="sector">
+                            <option value="">All Sectors</option>
+                            <!-- Options will be populated by JavaScript -->
+                        </select>
+                    </div>
+                </div>
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="exam-type">Exam/Task</label>
+                        <select id="exam-type">
+                            <option value="">All Types</option>
+                            <option value="Exam">Exam</option>
+                            <option value="Task">Task</option>
+                        </select>
+                    </div>
+                    <div class="filter-group datepicker">
+                        <label for="date-from">From Date</label>
+                        <input type="date" id="date-from">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <div class="filter-group datepicker">
+                        <label for="date-to">To Date</label>
+                        <input type="date" id="date-to">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                </div>
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="search-term">Search</label>
+                        <input type="text" id="search-term" placeholder="Search by component code, name...">
+                    </div>
+                </div>
+                <div class="filter-controls">
+                    <button id="reset-filters" class="secondary-btn">Reset</button>
+                    <button id="apply-filters" class="primary-btn">Apply Filters</button>
+                </div>
+            </div>
+
+            <div class="results">
+                <div class="results-header">
+                    <h2>Assessment Results <span id="result-count" class="results-count">(0)</span></h2>
+                </div>
+                <div class="table-container">
+                    <table id="results-table">
+                        <thead>
+                            <tr>
+                                <th>Qualification</th>
+                                <th>Sector</th>
+                                <th>Component Code</th>
+                                <th>Component Name</th>
+                                <th>Type</th>
+                                <th>Release Date</th>
+                                <th>Window</th>
+                                <th>Deadline</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-body">
+                            <!-- Results will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                    <div id="loading" class="loading">
+                        <div class="spinner"></div>
+                    </div>
+                    <div id="no-results" class="no-results" style="display: none;">
+                        <i class="fas fa-search"></i>
+                        <h3>No assessments found</h3>
+                        <p>Try adjusting your filters or search terms</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="upcoming-tab">
+            <div class="results">
+                <div class="results-header">
+                    <h2>Upcoming Assessments <span id="upcoming-count" class="results-count">(0)</span></h2>
+                </div>
+                <div class="table-container">
+                    <table id="upcoming-table">
+                        <thead>
+                            <tr>
+                                <th>Qualification</th>
+                                <th>Sector</th>
+                                <th>Component Code</th>
+                                <th>Component Name</th>
+                                <th>Type</th>
+                                <th>Release Date</th>
+                                <th>Window</th>
+                                <th>Deadline</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="upcoming-body">
+                            <!-- Results will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Details Modal -->
+    <div id="details-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Assessment Details</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div id="modal-body">
+                <!-- Details will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2025 Pearson Education Ltd. All rights reserved.</p>
+    </footer>
+
+    <!-- JavaScript files -->
+    <script src="script.js"></script>
+</body>
+</html>
