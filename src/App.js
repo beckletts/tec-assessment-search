@@ -106,6 +106,7 @@ function App() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [activeTab, setActiveTab] = useState('search');
   const [filters, setFilters] = useState({
+    qualification: '',
     sector: '',
     examType: '',
     searchTerm: ''
@@ -238,8 +239,6 @@ function App() {
       qualification: '',
       sector: '',
       examType: '',
-      dateFrom: '',
-      dateTo: '',
       searchTerm: ''
     });
     setFilteredData(assessmentData);
@@ -335,6 +334,22 @@ function App() {
               </div>
               
               <div className="filter-row">
+                <div className="filter-group">
+                  <label htmlFor="qualification">Qualification</label>
+                  <select
+                    id="qualification"
+                    name="qualification"
+                    value={filters.qualification}
+                    onChange={handleFilterChange}
+                    className="filter-select"
+                  >
+                    <option value="">All Qualifications</option>
+                    {getUniqueValues('qualification').map(qual => (
+                      <option key={qual} value={qual}>{qual}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="filter-group">
                   <label htmlFor="sector">Sector/Subject</label>
                   <select
