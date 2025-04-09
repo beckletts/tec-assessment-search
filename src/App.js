@@ -280,7 +280,7 @@ function App() {
         const lowerSize = size.toLowerCase();
         return lowerSize.includes('certificate') || 
                lowerSize.includes('diploma') || 
-               lowerSize.includes('national') || 
+               lowerSize.includes('btec nationals') || 
                lowerSize.includes('technical');
       })
       .map(size => {
