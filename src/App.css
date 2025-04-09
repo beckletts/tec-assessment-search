@@ -287,9 +287,8 @@ button {
 }
 
 .table-container {
-    overflow-x: hidden;
-    max-height: calc(100vh - 400px);
-    overflow-y: auto;
+    overflow-x: auto;
+    margin-top: 20px;
 }
 
 table {
@@ -299,51 +298,71 @@ table {
 }
 
 th, td {
-    padding: 12px 15px;
+    padding: 12px;
     text-align: left;
     border-bottom: 1px solid #ddd;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-th:first-child,
-td:first-child {
-    width: 50px;
-}
-
-th:nth-child(2),
-td:nth-child(2) {
-    width: 25%;
-}
-
-th:nth-child(3),
-td:nth-child(3) {
-    width: 15%;
-}
-
-th:nth-child(4),
-td:nth-child(4) {
-    width: 45%;
-}
-
-th:last-child,
-td:last-child {
-    width: 100px;
-    text-align: center;
 }
 
 th {
     background-color: var(--pearson-light-blue);
-    color: var(--pearson-dark-blue);
-    position: sticky;
-    top: 0;
-    z-index: 10;
     font-weight: bold;
+    position: relative;
+    cursor: pointer;
 }
 
-tbody tr:hover {
-    background-color: #f9f9f9;
+th:hover {
+    background-color: #e0e0e0;
+}
+
+td {
+    max-width: 200px;
+}
+
+td:hover {
+    overflow: visible;
+    white-space: normal;
+    word-break: break-word;
+    position: relative;
+    z-index: 1;
+    background-color: white;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+.details-btn {
+    padding: 6px 12px;
+    background-color: var(--pearson-blue);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.details-btn:hover {
+    background-color: var(--pearson-dark-blue);
+}
+
+/* Add tooltip for truncated content */
+td[title] {
+    position: relative;
+}
+
+td[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background-color: white;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    z-index: 2;
+    white-space: normal;
+    width: max-content;
+    max-width: 300px;
 }
 
 .status-pill {
@@ -364,18 +383,6 @@ tbody tr:hover {
     color: #155724;
 }
 
-.details-btn {
-    background-color: var(--pearson-blue);
-    color: white;
-    padding: 6px 12px;
-    font-size: 12px;
-    border-radius: 4px;
-}
-
-.details-btn:hover {
-    background-color: var(--pearson-dark-blue);
-}
-
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -390,13 +397,14 @@ tbody tr:hover {
 }
 
 .modal {
-    background-color: white;
+    background: white;
     border-radius: 8px;
+    padding: 20px;
     width: 80%;
     max-width: 800px;
     max-height: 80vh;
     overflow-y: auto;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    position: relative;
 }
 
 .modal-header {
@@ -429,19 +437,49 @@ tbody tr:hover {
 .details-table {
     width: 100%;
     border-collapse: collapse;
+    margin-top: 20px;
 }
 
 .details-table th {
+    text-align: left;
+    padding: 12px;
     background-color: var(--pearson-light-blue);
-    color: var(--pearson-dark-blue);
-    padding: 10px;
-    text-align: right;
-    width: 30%;
+    width: 200px;
+    text-transform: capitalize;
 }
 
 .details-table td {
-    padding: 10px;
+    padding: 12px;
     border-bottom: 1px solid #eee;
+    max-width: 500px;
+    word-break: break-word;
+}
+
+.details-table tr:hover {
+    background-color: #f9f9f9;
+}
+
+.qualification-link {
+    color: var(--pearson-blue);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.qualification-link:hover {
+    color: var(--pearson-dark-blue);
+}
+
+.qualification-sizes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.qualification-size {
+    background-color: var(--pearson-light-blue);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 14px;
 }
 
 .loading {

@@ -148,15 +148,22 @@ function App() {
           
           sheetData.forEach(row => {
             if (row.Qualification || row.qualification) {
+              // Extract series and part from component code if available
+              const componentCode = row['Component Code'] || row['Component\nCode'] || '';
+              const seriesMatch = componentCode.match(/^([A-Z]+)/);
+              const partMatch = componentCode.match(/([A-Z])$/);
+              
               combinedData.push({
                 id: combinedData.length + 1,
                 sheet: sheetName,
                 qualification: row.Qualification || row.qualification || '',
                 sector: row.Sector || row.Subject || row.sector || '',
-                componentCode: row['Component Code'] || row['Component\nCode'] || row['Examination code'] || row['Component/Unit Code'] || '',
+                componentCode: componentCode,
                 componentName: row['Component Name'] || row.Title || row['Component/Unit Name'] || '',
                 examType: row['Exam/Task'] || row['Task/Test'] || row['Assessment Type'] || '',
-                duration: row.Duration || '',
+                series: seriesMatch ? seriesMatch[1] : '',
+                part: partMatch ? partMatch[1] : '',
+                duration: row.Duration || row['Duration (hours)'] || '',
                 access: row.Access || row['Access Arrangement'] || '',
                 levelOfControl: row['Level of control'] || '',
                 additionalInfo: row['Additional information'] || row.Notes || '',
@@ -245,6 +252,28 @@ function App() {
     setSelectedItems([]);
   };
 
+  const formatQualificationSizes = (sizes) => {
+    if (!sizes) return 'N/A';
+    const sizeList = sizes.split(',').map(size => size.trim());
+    return (
+      <div className="qualification-sizes">
+        {sizeList.map((size, index) => (
+          <span key={index} className="qualification-size">
+            {size}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  const findRelatedPart = (currentItem) => {
+    if (!currentItem.part) return null;
+    const relatedPart = currentItem.part === 'A' ? 'B' : 'A';
+    return assessmentData.find(item => 
+      item.componentCode === currentItem.componentCode.replace(/[AB]$/, relatedPart)
+    );
+  };
+
   const showDetails = (item) => {
     setSelectedItem(item);
     setShowModal(true);
@@ -253,6 +282,12 @@ function App() {
   const closeModal = () => {
     setShowModal(false);
     setSelectedItem(null);
+  };
+
+  const navigateToRelatedPart = (relatedItem) => {
+    if (relatedItem) {
+      showDetails(relatedItem);
+    }
   };
 
   const downloadSelected = () => {
@@ -265,19 +300,20 @@ function App() {
 
   const getUpcomingAssessments = () => {
     const today = new Date();
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(today.getDate() + 30);
 
     return assessmentData
       .filter(item => {
         if (!item.windowStart) return false;
         const assessmentDate = new Date(item.windowStart.split('/').reverse().join('-'));
-        return assessmentDate >= today;
+        return assessmentDate >= today && assessmentDate <= thirtyDaysFromNow;
       })
       .sort((a, b) => {
         const dateA = new Date(a.windowStart.split('/').reverse().join('-'));
         const dateB = new Date(b.windowStart.split('/').reverse().join('-'));
         return dateA - dateB;
-      })
-      .slice(0, 5); // Take only the first 5 upcoming assessments
+      });
   };
 
   return (
@@ -316,7 +352,10 @@ function App() {
                 placeholder="Search across all fields..."
                 name="searchTerm"
                 value={filters.searchTerm}
-                onChange={handleFilterChange}
+                onChange={(e) => {
+                  handleFilterChange(e);
+                  applyFilters();
+                }}
               />
             </section>
 
@@ -326,9 +365,6 @@ function App() {
                 <div>
                   <button className="secondary-btn" onClick={resetFilters} style={{ marginRight: '10px' }}>
                     Reset All
-                  </button>
-                  <button className="primary-btn" onClick={applyFilters}>
-                    Apply Filters
                   </button>
                 </div>
               </div>
@@ -340,10 +376,13 @@ function App() {
                     id="qualification"
                     name="qualification"
                     value={filters.qualification}
-                    onChange={handleFilterChange}
+                    onChange={(e) => {
+                      handleFilterChange(e);
+                      applyFilters();
+                    }}
                     className="filter-select"
                   >
-                    <option value="">All Qualifications</option>
+                    <option value="">All</option>
                     {getUniqueValues('qualification').map(qual => (
                       <option key={qual} value={qual}>{qual}</option>
                     ))}
@@ -356,10 +395,13 @@ function App() {
                     id="sector"
                     name="sector"
                     value={filters.sector}
-                    onChange={handleFilterChange}
+                    onChange={(e) => {
+                      handleFilterChange(e);
+                      applyFilters();
+                    }}
                     className="filter-select"
                   >
-                    <option value="">All Sectors</option>
+                    <option value="">All Sectors/Subjects</option>
                     {getUniqueValues('sector').map(sector => (
                       <option key={sector} value={sector}>{sector}</option>
                     ))}
@@ -372,10 +414,13 @@ function App() {
                     id="exam-type"
                     name="examType"
                     value={filters.examType}
-                    onChange={handleFilterChange}
+                    onChange={(e) => {
+                      handleFilterChange(e);
+                      applyFilters();
+                    }}
                     className="filter-select"
                   >
-                    <option value="">All Types</option>
+                    <option value="">All</option>
                     {getUniqueValues('examType').map(type => (
                       <option key={type} value={type}>{type}</option>
                     ))}
@@ -415,9 +460,13 @@ function App() {
                         onChange={handleSelectAll}
                       />
                     </th>
-                    <th>Sector</th>
-                    <th>Component Code</th>
-                    <th>Component Name</th>
+                    <th>Series</th>
+                    <th>Part</th>
+                    <th>Unit Code</th>
+                    <th>Unit Name</th>
+                    <th>Sector/Subject</th>
+                    <th>Release Date</th>
+                    <th>Exam Date</th>
                     <th>Details</th>
                   </tr>
                 </thead>
@@ -431,9 +480,13 @@ function App() {
                           onChange={() => handleSelectItem(item.id)}
                         />
                       </td>
-                      <td>{item.sector}</td>
-                      <td>{item.componentCode}</td>
-                      <td>{item.componentName}</td>
+                      <td>{item.series || 'N/A'}</td>
+                      <td>{item.part || 'N/A'}</td>
+                      <td>{item.componentCode || 'N/A'}</td>
+                      <td>{item.componentName || 'N/A'}</td>
+                      <td>{item.sector || 'N/A'}</td>
+                      <td>{item.releaseDate || 'N/A'}</td>
+                      <td>{item.windowStart || 'N/A'}</td>
                       <td>
                         <button className="details-btn" onClick={() => showDetails(item)}>
                           View Details
@@ -451,25 +504,150 @@ function App() {
           <div className="modal-overlay">
             <div className="modal">
               <div className="modal-header">
-                <h2>Qualification Details</h2>
+                <h2>Assessment Details</h2>
                 <button className="close-btn" onClick={closeModal}>×</button>
               </div>
-              <div className="modal-body">
-                <table className="details-table">
+              <table className="details-table">
+                <tbody>
+                  <tr>
+                    <th>Qualification</th>
+                    <td>{selectedItem.qualification || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <th>Sector/Subject</th>
+                    <td>{selectedItem.sector || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <th>Unit Code</th>
+                    <td>{selectedItem.componentCode || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <th>Unit Name</th>
+                    <td>{selectedItem.componentName || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <th>Part</th>
+                    <td>
+                      {selectedItem.part || 'N/A'}
+                      {findRelatedPart(selectedItem) && (
+                        <span 
+                          className="qualification-link"
+                          onClick={() => navigateToRelatedPart(findRelatedPart(selectedItem))}
+                        >
+                          {' '}(View Part {selectedItem.part === 'A' ? 'B' : 'A'})
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>Qualification Sizes</th>
+                    <td>{formatQualificationSizes(selectedItem.qualificationSizes)}</td>
+                  </tr>
+                  <tr>
+                    <th>Release Date</th>
+                    <td>{selectedItem.releaseDate || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <th>Window Start</th>
+                    <td>{selectedItem.windowStart || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <th>Window End</th>
+                    <td>{selectedItem.windowEnd || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <th>Submission Deadline</th>
+                    <td>{selectedItem.submissionDeadline || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <th>Duration</th>
+                    <td>{selectedItem.duration || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <th>Access Arrangements</th>
+                    <td>{selectedItem.access || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <th>Level of Control</th>
+                    <td>{selectedItem.levelOfControl || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <th>Invigilator</th>
+                    <td>{selectedItem.invigilator || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <th>Additional Information</th>
+                    <td>{selectedItem.additionalInfo || 'N/A'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'upcoming' && (
+          <section className="results">
+            <div className="results-header">
+              <h2>
+                Upcoming Assessments (Next 30 Days)
+                <span className="results-count">
+                  ({getUpcomingAssessments().length} {getUpcomingAssessments().length === 1 ? 'assessment' : 'assessments'})
+                </span>
+              </h2>
+            </div>
+            <div className="table-container">
+              {loading ? (
+                <div className="loading">Loading...</div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.length === getUpcomingAssessments().length}
+                          onChange={handleSelectAll}
+                        />
+                      </th>
+                      <th>Series</th>
+                      <th>Part</th>
+                      <th>Unit Code</th>
+                      <th>Unit Name</th>
+                      <th>Sector/Subject</th>
+                      <th>Release Date</th>
+                      <th>Exam Date</th>
+                      <th>Details</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {Object.entries(selectedItem).map(([key, value]) => (
-                      key !== 'id' && (
-                        <tr key={key}>
-                          <th>{key.replace(/([A-Z])/g, ' $1').trim()}</th>
-                          <td>{value}</td>
-                        </tr>
-                      )
+                    {getUpcomingAssessments().map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedItems.includes(item.id)}
+                            onChange={() => handleSelectItem(item.id)}
+                          />
+                        </td>
+                        <td>{item.series || 'N/A'}</td>
+                        <td>{item.part || 'N/A'}</td>
+                        <td>{item.componentCode || 'N/A'}</td>
+                        <td>{item.componentName || 'N/A'}</td>
+                        <td>{item.sector || 'N/A'}</td>
+                        <td>{item.releaseDate || 'N/A'}</td>
+                        <td>{item.windowStart || 'N/A'}</td>
+                        <td>
+                          <button className="details-btn" onClick={() => showDetails(item)}>
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
+              )}
             </div>
-          </div>
+          </section>
         )}
       </main>
     </div>
