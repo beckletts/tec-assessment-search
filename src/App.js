@@ -197,7 +197,12 @@ function App() {
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+    setFilters(prev => {
+      const newFilters = { ...prev, [name]: value };
+      // Apply filters immediately when any filter changes
+      applyFilters(newFilters);
+      return newFilters;
+    });
   };
 
   const handleSelectAll = (e) => {
@@ -216,20 +221,33 @@ function App() {
     );
   };
 
-  const applyFilters = () => {
+  const applyFilters = (currentFilters = filters) => {
     let filtered = [...assessmentData];
 
-    if (filters.qualification) {
-      filtered = filtered.filter(item => item.qualification === filters.qualification);
+    // Apply qualification filter
+    if (currentFilters.qualification) {
+      filtered = filtered.filter(item => 
+        item.qualification.toLowerCase() === currentFilters.qualification.toLowerCase()
+      );
     }
-    if (filters.sector) {
-      filtered = filtered.filter(item => item.sector === filters.sector);
+
+    // Apply sector filter
+    if (currentFilters.sector) {
+      filtered = filtered.filter(item => 
+        item.sector.toLowerCase() === currentFilters.sector.toLowerCase()
+      );
     }
-    if (filters.examType) {
-      filtered = filtered.filter(item => item.examType === filters.examType);
+
+    // Apply exam type filter
+    if (currentFilters.examType) {
+      filtered = filtered.filter(item => 
+        item.examType.toLowerCase() === currentFilters.examType.toLowerCase()
+      );
     }
-    if (filters.searchTerm) {
-      const searchLower = filters.searchTerm.toLowerCase();
+
+    // Apply search term filter
+    if (currentFilters.searchTerm) {
+      const searchLower = currentFilters.searchTerm.toLowerCase();
       filtered = filtered.filter(item => 
         Object.values(item).some(value => 
           value && value.toString().toLowerCase().includes(searchLower)
@@ -242,12 +260,13 @@ function App() {
   };
 
   const resetFilters = () => {
-    setFilters({
+    const defaultFilters = {
       qualification: '',
       sector: '',
       examType: '',
       searchTerm: ''
-    });
+    };
+    setFilters(defaultFilters);
     setFilteredData(assessmentData);
     setSelectedItems([]);
   };
@@ -354,7 +373,6 @@ function App() {
                 value={filters.searchTerm}
                 onChange={(e) => {
                   handleFilterChange(e);
-                  applyFilters();
                 }}
               />
             </section>
@@ -378,7 +396,6 @@ function App() {
                     value={filters.qualification}
                     onChange={(e) => {
                       handleFilterChange(e);
-                      applyFilters();
                     }}
                     className="filter-select"
                   >
@@ -397,7 +414,6 @@ function App() {
                     value={filters.sector}
                     onChange={(e) => {
                       handleFilterChange(e);
-                      applyFilters();
                     }}
                     className="filter-select"
                   >
@@ -416,7 +432,6 @@ function App() {
                     value={filters.examType}
                     onChange={(e) => {
                       handleFilterChange(e);
-                      applyFilters();
                     }}
                     className="filter-select"
                   >
