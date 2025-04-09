@@ -405,29 +405,34 @@ td[title]:hover::after {
     max-height: 80vh;
     overflow-y: auto;
     position: relative;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .modal-header {
-    background-color: var(--pearson-dark-blue);
-    color: white;
-    padding: 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--pearson-light-blue);
 }
 
 .modal-header h2 {
+    color: var(--pearson-dark-blue);
     margin: 0;
-    font-size: 20px;
 }
 
 .close-btn {
     background: none;
     border: none;
-    color: white;
     font-size: 24px;
     cursor: pointer;
+    color: var(--pearson-dark-blue);
     padding: 0;
+}
+
+.close-btn:hover {
+    color: var(--pearson-blue);
 }
 
 .modal-body {
@@ -446,6 +451,9 @@ td[title]:hover::after {
     background-color: var(--pearson-light-blue);
     width: 200px;
     text-transform: capitalize;
+    font-weight: bold;
+    color: var(--pearson-dark-blue);
+    vertical-align: top;
 }
 
 .details-table td {
@@ -453,6 +461,8 @@ td[title]:hover::after {
     border-bottom: 1px solid #eee;
     max-width: 500px;
     word-break: break-word;
+    white-space: normal;
+    line-height: 1.5;
 }
 
 .details-table tr:hover {
@@ -463,6 +473,7 @@ td[title]:hover::after {
     color: var(--pearson-blue);
     text-decoration: underline;
     cursor: pointer;
+    margin-left: 8px;
 }
 
 .qualification-link:hover {
@@ -480,6 +491,8 @@ td[title]:hover::after {
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 14px;
+    color: var(--pearson-dark-blue);
+    white-space: nowrap;
 }
 
 .loading {

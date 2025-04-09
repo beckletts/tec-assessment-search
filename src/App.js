@@ -273,10 +273,27 @@ function App() {
 
   const formatQualificationSizes = (sizes) => {
     if (!sizes) return 'N/A';
-    const sizeList = sizes.split(',').map(size => size.trim());
+    // Extract just the size names (Certificate, Extended Certificate, etc.)
+    const sizeList = sizes.split(',')
+      .map(size => size.trim())
+      .filter(size => {
+        const lowerSize = size.toLowerCase();
+        return lowerSize.includes('certificate') || 
+               lowerSize.includes('diploma') || 
+               lowerSize.includes('national') || 
+               lowerSize.includes('technical');
+      })
+      .map(size => {
+        // Clean up the size name
+        if (size.toLowerCase().includes('extended')) return 'Extended Certificate';
+        if (size.toLowerCase().includes('certificate')) return 'Certificate';
+        if (size.toLowerCase().includes('diploma')) return 'Diploma';
+        return size;
+      });
+    
     return (
       <div className="qualification-sizes">
-        {sizeList.map((size, index) => (
+        {[...new Set(sizeList)].map((size, index) => (
           <span key={index} className="qualification-size">
             {size}
           </span>
@@ -525,7 +542,7 @@ function App() {
               <table className="details-table">
                 <tbody>
                   <tr>
-                    <th>Qualification</th>
+                    <th>Qualifications</th>
                     <td>{selectedItem.qualification || 'N/A'}</td>
                   </tr>
                   <tr>
