@@ -136,53 +136,295 @@ function App() {
   useEffect(() => {
     const loadExcelData = async () => {
       try {
-        const response = await fetch('/data/BTEC External Assessment Overview.xlsx');
-        const arrayBuffer = await response.arrayBuffer();
-        const workbook = read(arrayBuffer);
+        setLoading(true);
+        console.log('Starting data load...');
+        
+        // Load main assessment data
+        const mainResponse = await fetch('/data/BTEC External Assessment Overview App data with exams.xlsx');
+        if (!mainResponse.ok) {
+          throw new Error(`Failed to load Excel file: ${mainResponse.status} ${mainResponse.statusText}`);
+        }
+        const mainArrayBuffer = await mainResponse.arrayBuffer();
+        const mainWorkbook = read(mainArrayBuffer, { type: 'array' });
+        
+        if (!mainWorkbook.SheetNames || mainWorkbook.SheetNames.length === 0) {
+          throw new Error('No sheets found in the Excel file');
+        }
+        
+        console.log('Main workbook loaded. Sheets:', mainWorkbook.SheetNames);
         
         let combinedData = [];
         
-        workbook.SheetNames.forEach(sheetName => {
-          const worksheet = workbook.Sheets[sheetName];
-          const sheetData = utils.sheet_to_json(worksheet);
+        // First process all sheets except Summer 25 to get qualification data
+        for (const sheetName of mainWorkbook.SheetNames) {
+          if (sheetName === 'Summer 25') continue;
           
-          sheetData.forEach(row => {
-            if (row.Qualification || row.qualification) {
-              // Extract series and part from component code if available
-              const componentCode = row['Component Code'] || row['Component\nCode'] || '';
-              const seriesMatch = componentCode.match(/^([A-Z]+)/);
-              const partMatch = componentCode.match(/([A-Z])$/);
-              
-              combinedData.push({
-                id: combinedData.length + 1,
-                sheet: sheetName,
-                qualification: row.Qualification || row.qualification || '',
-                sector: row.Sector || row.Subject || row.sector || '',
-                componentCode: componentCode,
-                componentName: row['Component Name'] || row.Title || row['Component/Unit Name'] || '',
-                examType: row['Exam/Task'] || row['Task/Test'] || row['Assessment Type'] || '',
-                series: seriesMatch ? seriesMatch[1] : '',
-                part: partMatch ? partMatch[1] : '',
-                duration: row.Duration || row['Duration (hours)'] || '',
-                access: row.Access || row['Access Arrangement'] || '',
-                levelOfControl: row['Level of control'] || '',
-                additionalInfo: row['Additional information'] || row.Notes || '',
-                invigilator: row['Internal/External invigilator required'] || row['Invigilator Type'] || '',
-                qualificationSizes: row['Qualification Sizes\n(Double click to expand cell to see all qualifications)'] || row['Qualification Sizes'] || '',
-                releaseDate: formatDate(row['Release Date']),
-                windowStart: formatDate(row['Window start'] || row['Start Date']),
-                windowEnd: formatDate(row['Window end'] || row['End Date']),
-                submissionDeadline: formatDate(row['Submission deadline'] || row.Deadline)
-              });
+          console.log(`Processing sheet: ${sheetName}`);
+          const worksheet = mainWorkbook.Sheets[sheetName];
+          const sheetData = utils.sheet_to_json(worksheet, { header: 1 });
+          
+          if (sheetData.length < 2) {
+            console.log(`Skipping empty sheet: ${sheetName}`);
+            continue;
+          }
+          
+          const headerRow = sheetData[0];
+          console.log('Header row:', headerRow);
+          
+          const getColumnIndex = (possibleNames) => {
+            const index = headerRow.findIndex(header => {
+              if (!header) return false;
+              const headerText = header.toString().toLowerCase().trim();
+              console.log(`Checking header "${headerText}" against possible names:`, possibleNames);
+              return possibleNames.some(name => headerText.includes(name.toLowerCase()));
+            });
+            console.log(`Looking for columns ${JSON.stringify(possibleNames)}: found at index ${index}`);
+            return index;
+          };
+          
+          const indices = {
+            qualification: getColumnIndex(['qualification']),
+            unitCode: getColumnIndex(['unit code', 'component code', 'examination code', 'code', 'unit', 'component']),
+            unitName: getColumnIndex(['unit name', 'component name', 'unit title']),
+            sector: getColumnIndex(['sector', 'subject area', 'subject']),
+            examType: getColumnIndex(['exam/task', 'task/test', 'exam type', 'assessment type'])
+          };
+          
+          console.log('Column indices:', indices);
+          console.log('Header row for reference:', headerRow);
+          
+          // Skip header row and process data
+          for (let i = 1; i < sheetData.length; i++) {
+            const row = sheetData[i];
+            if (!row || row.length === 0) {
+              console.log(`Skipping empty row ${i}`);
+              continue;
             }
-          });
+            
+            const qualification = String(row[indices.qualification] || '').trim();
+            const unitCode = String(row[indices.unitCode] || '').trim();
+            const unitName = String(row[indices.unitName] || '').trim();
+            const sector = String(row[indices.sector] || '').trim();
+            const examType = String(row[indices.examType] || '').trim();
+            
+            console.log(`Processing row ${i}:`, {
+              qualification,
+              unitCode,
+              unitName,
+              sector,
+              examType,
+              rawRow: row
+            });
+            
+            if (!qualification && !unitCode && !unitName) {
+              console.log(`Skipping empty data row ${i}`);
+              continue;
+            }
+            
+            // Create a unique key for this assessment
+            const key = `${qualification}-${unitCode}-${unitName}`.replace(/\s+/g, '-');
+            
+            // Add to combined data
+            const newItem = {
+              key,
+              qualification,
+              componentCode: unitCode || '',
+              componentName: unitName || '',
+              sector: sector || '',
+              examType: examType || '',
+              examDateTime: '' // Will be updated from Summer 25 sheet
+            };
+            
+            console.log('Adding item:', newItem);
+            combinedData.push(newItem);
+          }
+        }
+        
+        // Then process Summer 25 sheet to get exam dates
+        const summer25Sheet = mainWorkbook.Sheets['Summer 25'];
+        if (summer25Sheet) {
+          console.log('Processing Summer 25 sheet for exam dates');
+          const summer25Data = utils.sheet_to_json(summer25Sheet, { header: 1 });
+          
+          if (summer25Data.length >= 2) {
+            const headerRow = summer25Data[0];
+            console.log('Summer 25 header row:', headerRow);
+            
+            const getColumnIndex = (possibleNames) => {
+              const index = headerRow.findIndex(header => {
+                if (!header) return false;
+                const headerText = header.toString().toLowerCase();
+                console.log(`Checking header "${headerText}" against:`, possibleNames);
+                return possibleNames.some(name => headerText.includes(name.toLowerCase()));
+              });
+              console.log(`Looking for columns ${JSON.stringify(possibleNames)}: found at index ${index}`);
+              return index;
+            };
+            
+            const indices = {
+              unitCode: getColumnIndex(['unit code', 'component code', 'examination code', 'code', 'unit', 'component', 'paper code', 'paper']),
+              examDate: getColumnIndex(['exam date', 'date']),
+              examTime: getColumnIndex(['exam time', 'time']),
+              examSeries: getColumnIndex(['exam series', 'series'])
+            };
+            
+            console.log('Summer 25 column indices:', indices);
+            
+            // Log the first few rows to see what we're working with
+            console.log('First few rows of Summer 25 sheet:', summer25Data.slice(0, 5).map(row => ({
+              raw: row,
+              unitCode: row[indices.unitCode],
+              examSeries: row[indices.examSeries]
+            })));
+            
+            // Create a map of unit codes to exam series for faster lookup
+            const examSeriesMap = new Map();
+            
+            // First pass to build the exam series map
+            for (let i = 1; i < summer25Data.length; i++) {
+              const row = summer25Data[i];
+              if (!row || row.length === 0) continue;
+              
+              const unitCode = String(row[indices.unitCode] || '').trim();
+              const examSeries = row[indices.examSeries];
+              
+              if (unitCode && examSeries) {
+                // For RQF BTEC Nationals, we need to handle the format XXXXXТ
+                const isRQFCode = /^\d{5}T$/i.test(unitCode);
+                const isTechAward = /^B[A-Z]{2}0[23]$/i.test(unitCode); // e.g., BAC03, BCD02
+                
+                console.log(`Processing row ${i}:`, {
+                  unitCode,
+                  examSeries,
+                  isRQFCode,
+                  isTechAward
+                });
+                
+                if (isRQFCode || isTechAward) {
+                  let variations = [];
+                  
+                  if (isRQFCode) {
+                    // Store multiple variations for RQF codes
+                    const codeWithoutT = unitCode.slice(0, -1);
+                    variations = [
+                      unitCode,
+                      unitCode.toUpperCase(),
+                      unitCode.toLowerCase(),
+                      codeWithoutT,
+                      codeWithoutT.padStart(5, '0'),
+                      codeWithoutT + 't',
+                      codeWithoutT + 'T',
+                      // Add more variations
+                      unitCode.replace(/^0+/, ''),  // Remove leading zeros
+                      unitCode.replace(/^0+/, '').toLowerCase()
+                    ];
+                  } else if (isTechAward) {
+                    // Store multiple variations for Tech Award codes
+                    const baseCode = unitCode.slice(0, -2);  // Remove last 2 digits
+                    variations = [
+                      unitCode,
+                      unitCode.toUpperCase(),
+                      unitCode.toLowerCase(),
+                      baseCode + '03',
+                      baseCode + '02',
+                      baseCode,
+                      // Add more variations
+                      unitCode.replace('03', ''),
+                      unitCode.replace('02', ''),
+                      baseCode.toLowerCase()
+                    ];
+                  }
+                  
+                  console.log(`Adding variations for ${unitCode}:`, {
+                    variations,
+                    examSeries
+                  });
+                  
+                  variations.forEach(code => {
+                    if (code) {
+                      examSeriesMap.set(code, String(examSeries).trim());
+                      examSeriesMap.set(code.toLowerCase(), String(examSeries).trim());
+                    }
+                  });
+                } else {
+                  // Handle other codes as before
+                  const normalizedCode = unitCode.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                  examSeriesMap.set(unitCode, String(examSeries).trim());
+                  examSeriesMap.set(normalizedCode, String(examSeries).trim());
+                }
+              }
+            }
+            
+            console.log('Exam series map contents:', Array.from(examSeriesMap.entries()));
+            
+            // Then process the rows for all data
+            combinedData.forEach(item => {
+              const itemCode = item.componentCode;
+              if (!itemCode) return;
+              
+              // Check if this is an RQF code or Tech Award code
+              const isRQFCode = /^\d{5}T$/i.test(itemCode);
+              const isTechAward = /^B[A-Z]{2}0[23]$/i.test(itemCode);
+              
+              if (isRQFCode || isTechAward) {
+                let variations = [];
+                
+                if (isRQFCode) {
+                  const codeWithoutT = itemCode.slice(0, -1);
+                  variations = [
+                    itemCode.toUpperCase(),
+                    itemCode.toLowerCase(),
+                    codeWithoutT,
+                    codeWithoutT.padStart(5, '0'),
+                    codeWithoutT + 't',
+                    codeWithoutT + 'T'
+                  ];
+                } else if (isTechAward) {
+                  variations = [
+                    itemCode.toUpperCase(),
+                    itemCode.toLowerCase(),
+                    itemCode.replace('03', ''),
+                    itemCode.replace('02', '')
+                  ];
+                }
+                
+                console.log(`Looking for ${isRQFCode ? 'RQF' : 'Tech Award'} code ${itemCode}:`, {
+                  variations,
+                  hasMatch: variations.some(v => examSeriesMap.has(v)),
+                  matchedValue: variations.find(v => examSeriesMap.has(v))
+                });
+                
+                const matchingCode = variations.find(code => examSeriesMap.has(code));
+                if (matchingCode) {
+                  item.series = examSeriesMap.get(matchingCode);
+                }
+              } else {
+                // Handle other codes as before
+                const normalizedCode = itemCode.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                if (examSeriesMap.has(itemCode)) {
+                  item.series = examSeriesMap.get(itemCode);
+                } else if (examSeriesMap.has(normalizedCode)) {
+                  item.series = examSeriesMap.get(normalizedCode);
+                }
+              }
+            });
+          }
+        }
+        
+        console.log('Final combined data:', {
+          count: combinedData.length,
+          sample: combinedData.slice(0, 3)
         });
-
+        
+        if (combinedData.length === 0) {
+          console.warn('No data was processed. Check the Excel structure and column names.');
+        }
+        
         setAssessmentData(combinedData);
         setFilteredData(combinedData);
         setLoading(false);
-      } catch (err) {
-        console.error('Error loading Excel file:', err);
+      } catch (error) {
+        console.error('Error loading Excel data:', error);
         setLoading(false);
       }
     };
@@ -207,17 +449,17 @@ function App() {
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedItems(filteredData.map(item => item.id));
+      setSelectedItems(filteredData.map(item => item.key));
     } else {
       setSelectedItems([]);
     }
   };
 
-  const handleSelectItem = (id) => {
+  const handleSelectItem = (key) => {
     setSelectedItems(prev => 
-      prev.includes(id)
-        ? prev.filter(itemId => itemId !== id)
-        : [...prev, id]
+      prev.includes(key)
+        ? prev.filter(itemKey => itemKey !== key)
+        : [...prev, key]
     );
   };
 
@@ -327,7 +569,7 @@ function App() {
   };
 
   const downloadSelected = () => {
-    const selectedData = assessmentData.filter(item => selectedItems.includes(item.id));
+    const selectedData = assessmentData.filter(item => selectedItems.includes(item.key));
     const worksheet = utils.json_to_sheet(selectedData);
     const workbook = utils.book_new();
     utils.book_append_sheet(workbook, worksheet, 'Selected Qualifications');
@@ -493,7 +735,6 @@ function App() {
                       />
                     </th>
                     <th>Series</th>
-                    <th>Part</th>
                     <th>Unit Code</th>
                     <th>Unit Name</th>
                     <th>Sector/Subject</th>
@@ -503,29 +744,36 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(activeTab === 'search' ? filteredData : getUpcomingAssessments()).map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedItems.includes(item.id)}
-                          onChange={() => handleSelectItem(item.id)}
-                        />
-                      </td>
-                      <td>{item.series || 'N/A'}</td>
-                      <td>{item.part || 'N/A'}</td>
-                      <td>{item.componentCode || 'N/A'}</td>
-                      <td>{item.componentName || 'N/A'}</td>
-                      <td>{item.sector || 'N/A'}</td>
-                      <td>{item.releaseDate || 'N/A'}</td>
-                      <td>{item.windowStart || 'N/A'}</td>
-                      <td>
-                        <button className="details-btn" onClick={() => showDetails(item)}>
-                          View Details
-                        </button>
+                  {filteredData.length > 0 ? (
+                    filteredData.map((item, index) => (
+                      <tr key={`${item.key}-${index}`}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedItems.includes(item.key)}
+                            onChange={() => handleSelectItem(item.key)}
+                          />
+                        </td>
+                        <td>{item.series || 'N/A'}</td>
+                        <td>{item.componentCode || 'N/A'}</td>
+                        <td>{item.componentName || 'N/A'}</td>
+                        <td>{item.sector || 'N/A'}</td>
+                        <td>{item.releaseDate || 'N/A'}</td>
+                        <td>{item.examDateTime || 'N/A'}</td>
+                        <td>
+                          <button className="details-btn" onClick={() => showDetails(item)}>
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr key="no-data">
+                      <td colSpan="8" style={{ textAlign: 'center' }}>
+                        {loading ? 'Loading...' : 'No data found'}
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             )}
@@ -539,7 +787,7 @@ function App() {
                 <h2>Assessment Details</h2>
                 <button className="close-btn" onClick={closeModal}>×</button>
               </div>
-              <table className="details-table">
+                <table className="details-table">
                 <tbody>
                   <tr>
                     <th>Qualifications</th>
@@ -642,7 +890,6 @@ function App() {
                         />
                       </th>
                       <th>Series</th>
-                      <th>Part</th>
                       <th>Unit Code</th>
                       <th>Unit Name</th>
                       <th>Sector/Subject</th>
@@ -653,16 +900,15 @@ function App() {
                   </thead>
                   <tbody>
                     {getUpcomingAssessments().map((item) => (
-                      <tr key={item.id}>
+                      <tr key={item.key}>
                         <td>
                           <input
                             type="checkbox"
-                            checked={selectedItems.includes(item.id)}
-                            onChange={() => handleSelectItem(item.id)}
+                            checked={selectedItems.includes(item.key)}
+                            onChange={() => handleSelectItem(item.key)}
                           />
                         </td>
                         <td>{item.series || 'N/A'}</td>
-                        <td>{item.part || 'N/A'}</td>
                         <td>{item.componentCode || 'N/A'}</td>
                         <td>{item.componentName || 'N/A'}</td>
                         <td>{item.sector || 'N/A'}</td>
